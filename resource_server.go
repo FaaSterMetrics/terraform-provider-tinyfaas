@@ -39,15 +39,17 @@ func getID(address, name, tarballPath string, numThreads int) string {
 }
 
 type uploadPackage struct {
-	Resource string `json:"resource"`
-	Threads  int    `json:"threads"`
-	Tarball  string `json:"tarball"`
+	Resource    string                 `json:"resource"`
+	Threads     int                    `json:"threads"`
+	Tarball     string                 `json:"tarball"`
+	Environment map[string]interface{} `json:"environment"`
 }
 
-func uploadFunction(address, name, tarballPath string, numThreads int) {
+func uploadFunction(address, name, tarballPath string, numThreads int, env map[string]interface{}) {
 	dat, _ := ioutil.ReadFile(tarballPath)
 	b64 := base64.StdEncoding.EncodeToString(dat)
 	up := uploadPackage{Resource: "/" + name, Threads: numThreads, Tarball: b64}
+	up.Environment = env
 	ups, _ := json.Marshal(up)
 	http.Post("http://"+address+":8080/upload", "application/json", bytes.NewBuffer(ups))
 }
@@ -83,7 +85,8 @@ func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
 	name := d.Get("name").(string)
 	tarballPath := d.Get("tarball_path").(string)
 	numThreads := d.Get("num_threads").(int)
-	uploadFunction(address, name, tarballPath, numThreads)
+	environment := d.Get("environment").(map[string]interface{})
+	uploadFunction(address, name, tarballPath, numThreads, environment)
 	d.SetId(getID(address, name, tarballPath, numThreads))
 
 	return resourceServerRead(d, m)
@@ -109,7 +112,8 @@ func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
 	name := d.Get("name").(string)
 	tarballPath := d.Get("tarball_path").(string)
 	numThreads := d.Get("num_threads").(int)
-	uploadFunction(address, name, tarballPath, numThreads)
+	environment := d.Get("environment").(map[string]interface{})
+	uploadFunction(address, name, tarballPath, numThreads, environment)
 	d.SetId(getID(address, name, tarballPath, numThreads))
 
 	return resourceServerRead(d, m)
@@ -145,6 +149,10 @@ func resourceServer() *schema.Resource {
 			},
 			"num_threads": &schema.Schema{
 				Type:     schema.TypeInt,
+				Required: true,
+			},
+			"environment": &schema.Schema{
+				Type:     schema.TypeMap,
 				Required: true,
 			},
 		},
