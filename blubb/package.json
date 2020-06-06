@@ -1,8 +1,1 @@
-{
-    "name": "blubb",
-    "version": "1.0.0",
-    "description": "tests blubby things",
-    "main": "main.js",
-    "author": "Emily Dietrich"
-  }
-  
+{"name": "fn", "version": "1.0.0", "main": "index.js"}

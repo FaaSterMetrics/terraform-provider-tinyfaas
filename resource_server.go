@@ -39,7 +39,7 @@ func getID(address, name, tarballPath string, numThreads int) string {
 }
 
 type uploadPackage struct {
-	Resource    string                 `json:"resource"`
+	Name        string                 `json:"name"`
 	Threads     int                    `json:"threads"`
 	Tarball     string                 `json:"tarball"`
 	Environment map[string]interface{} `json:"environment"`
@@ -48,7 +48,7 @@ type uploadPackage struct {
 func uploadFunction(address, name, tarballPath string, numThreads int, env map[string]interface{}) {
 	dat, _ := ioutil.ReadFile(tarballPath)
 	b64 := base64.StdEncoding.EncodeToString(dat)
-	up := uploadPackage{Resource: "/" + name, Threads: numThreads, Tarball: b64}
+	up := uploadPackage{Name: name, Threads: numThreads, Tarball: b64}
 	up.Environment = env
 	ups, _ := json.Marshal(up)
 	http.Post("http://"+address+":8080/upload", "application/json", bytes.NewBuffer(ups))
@@ -75,6 +75,22 @@ func getFuncID(address, name string) string {
 	for _, fun := range funcs {
 		if name == fun.Name {
 			return getIDH(address, fun.Name, fun.Hash, fun.Threads)
+		}
+	}
+	return ""
+}
+
+func findFuncID(address, id string) string {
+	var funcs funcList
+	resp, _ := http.Get("http://" + address + ":8080/list")
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	json.Unmarshal(body, &funcs)
+
+	for _, fun := range funcs {
+		rID := getIDH(address, fun.Name, fun.Hash, fun.Threads)
+		if id == rID {
+			return fun.Name
 		}
 	}
 	return ""
@@ -113,6 +129,10 @@ func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
 	tarballPath := d.Get("tarball_path").(string)
 	numThreads := d.Get("num_threads").(int)
 	environment := d.Get("environment").(map[string]interface{})
+	oldName := findFuncID(address, d.Id())
+	if oldName != "" {
+		deleteFunction(address, oldName)
+	}
 	uploadFunction(address, name, tarballPath, numThreads, environment)
 	d.SetId(getID(address, name, tarballPath, numThreads))
 
