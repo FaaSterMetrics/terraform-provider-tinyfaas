@@ -29,26 +29,26 @@ func hashFile(path string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func getIDH(address, name, tarballChecksum string, numThreads int) string {
-	return fmt.Sprintf("%v %v %v %v", address, name, tarballChecksum, numThreads)
+func getIDH(address, name, zipChecksum string, numThreads int) string {
+	return fmt.Sprintf("%v %v %v %v", address, name, zipChecksum, numThreads)
 }
 
-func getID(address, name, tarballPath string, numThreads int) string {
-	tarballChecksum := hashFile(tarballPath)
-	return getIDH(address, name, tarballChecksum, numThreads)
+func getID(address, name, zipPath string, numThreads int) string {
+	zipChecksum := hashFile(zipPath)
+	return getIDH(address, name, zipChecksum, numThreads)
 }
 
 type uploadPackage struct {
 	Name        string                 `json:"name"`
 	Threads     int                    `json:"threads"`
-	Tarball     string                 `json:"tarball"`
+	Zip         string                 `json:"zip"`
 	Environment map[string]interface{} `json:"environment"`
 }
 
-func uploadFunction(address, name, tarballPath string, numThreads int, env map[string]interface{}) {
-	dat, _ := ioutil.ReadFile(tarballPath)
+func uploadFunction(address, name, zipPath string, numThreads int, env map[string]interface{}) {
+	dat, _ := ioutil.ReadFile(zipPath)
 	b64 := base64.StdEncoding.EncodeToString(dat)
-	up := uploadPackage{Name: name, Threads: numThreads, Tarball: b64}
+	up := uploadPackage{Name: name, Threads: numThreads, Zip: b64}
 	up.Environment = env
 	ups, _ := json.Marshal(up)
 	http.Post("http://"+address+":8080/upload", "application/json", bytes.NewBuffer(ups))
@@ -99,11 +99,11 @@ func findFuncID(address, id string) string {
 func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
 	address := os.Getenv("TINYFAAS_ADDRESS")
 	name := d.Get("name").(string)
-	tarballPath := d.Get("tarball_path").(string)
+	zipPath := d.Get("zip_path").(string)
 	numThreads := d.Get("num_threads").(int)
 	environment := d.Get("environment").(map[string]interface{})
-	uploadFunction(address, name, tarballPath, numThreads, environment)
-	d.SetId(getID(address, name, tarballPath, numThreads))
+	uploadFunction(address, name, zipPath, numThreads, environment)
+	d.SetId(getID(address, name, zipPath, numThreads))
 
 	return resourceServerRead(d, m)
 }
@@ -111,13 +111,13 @@ func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
 func resourceServerRead(d *schema.ResourceData, m interface{}) error {
 	address := os.Getenv("TINYFAAS_ADDRESS")
 	name := d.Get("name").(string)
-	tarballPath := d.Get("tarball_path").(string)
+	zipPath := d.Get("zip_path").(string)
 	numThreads := d.Get("num_threads").(int)
 
-	if getFuncID(address, name) != getID(address, name, tarballPath, numThreads) {
+	if getFuncID(address, name) != getID(address, name, zipPath, numThreads) {
 		d.SetId("")
 	} else {
-		d.SetId(getID(address, name, tarballPath, numThreads))
+		d.SetId(getID(address, name, zipPath, numThreads))
 	}
 
 	return nil
@@ -126,15 +126,15 @@ func resourceServerRead(d *schema.ResourceData, m interface{}) error {
 func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
 	address := os.Getenv("TINYFAAS_ADDRESS")
 	name := d.Get("name").(string)
-	tarballPath := d.Get("tarball_path").(string)
+	zipPath := d.Get("zip_path").(string)
 	numThreads := d.Get("num_threads").(int)
 	environment := d.Get("environment").(map[string]interface{})
 	oldName := findFuncID(address, d.Id())
 	if oldName != "" {
 		deleteFunction(address, oldName)
 	}
-	uploadFunction(address, name, tarballPath, numThreads, environment)
-	d.SetId(getID(address, name, tarballPath, numThreads))
+	uploadFunction(address, name, zipPath, numThreads, environment)
+	d.SetId(getID(address, name, zipPath, numThreads))
 
 	return resourceServerRead(d, m)
 }
@@ -159,7 +159,7 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"tarball_path": &schema.Schema{
+			"zip_path": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
